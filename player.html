@@ -41,6 +41,24 @@
         }
       });
     }
+
+    // React Native에서 postMessage로 명령 수신
+    function handleCommand(data) {
+      try {
+        var msg = JSON.parse(data);
+        if (!player) return;
+        if (msg.cmd === 'play')   player.playVideo();
+        if (msg.cmd === 'pause')  player.pauseVideo();
+        if (msg.cmd === 'seekTo') player.seekTo(msg.seconds, true);
+        if (msg.cmd === 'getTime') {
+          var t = player.getCurrentTime();
+          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'currentTime', value: t }));
+        }
+      } catch(e) {}
+    }
+
+    window.addEventListener('message', function(e) { handleCommand(e.data); });
+    document.addEventListener('message', function(e) { handleCommand(e.data); });
   </script>
 </body>
 </html>
