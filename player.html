@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #000; width: 100%; height: 100%; overflow: hidden; }
+    #player { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
+  </style>
+</head>
+<body>
+  <div id="player"></div>
+  <script>
+    var videoId = new URL(window.location.href).searchParams.get('videoId') || '';
+
+    var tag = document.createElement('script');
+    tag.src = 'https://www.youtube.com/iframe_api';
+    document.head.appendChild(tag);
+
+    var player;
+    function onYouTubeIframeAPIReady() {
+      player = new YT.Player('player', {
+        videoId: videoId,
+        playerVars: {
+          playsinline: 1,
+          controls: 0,
+          modestbranding: 1,
+          rel: 0,
+          fs: 0,
+        },
+        events: {
+          onReady: function() {
+            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'ready' }));
+          },
+          onStateChange: function(e) {
+            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'stateChange', state: e.data }));
+          },
+          onError: function(e) {
+            window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'error', code: e.data }));
+          }
+        }
+      });
+    }
+  </script>
+</body>
+</html>
