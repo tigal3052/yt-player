@@ -50,6 +50,7 @@
         if (msg.cmd === 'play')   player.playVideo();
         if (msg.cmd === 'pause')  player.pauseVideo();
         if (msg.cmd === 'seekTo') player.seekTo(msg.seconds, true);
+        if (msg.cmd === 'loadVideoById') player.loadVideoById({ videoId: msg.videoId });
         if (msg.cmd === 'getTime') {
           var t = player.getCurrentTime();
           window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'currentTime', value: t }));
