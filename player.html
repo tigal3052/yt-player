@@ -18,6 +18,11 @@
     document.head.appendChild(tag);
 
     var player;
+    // 방법9: PiP 중 재생 유지 플래그. 네이티브가 play탭 시 true, pause탭 시 false로 설정.
+    window._pipShouldPlay = false;
+    // 방법9: onStateChange에서 state=2 감지 시 재호출 무한루프 방지용 쿨다운
+    var _pipPlayRetryAt = 0;
+
     function onYouTubeIframeAPIReady() {
       player = new YT.Player('player', {
         videoId: videoId,
@@ -27,6 +32,7 @@
           modestbranding: 1,
           rel: 0,
           fs: 0,
+          autoplay: 1,  // 방법10: autoplay 활성화
         },
         events: {
           onReady: function() {
@@ -34,6 +40,15 @@
           },
           onStateChange: function(e) {
             window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'stateChange', state: e.data }));
+            // 방법9: state=2(일시정지) 감지 + _pipShouldPlay=true → 즉시 playVideo 재호출
+            // 쿨다운 500ms: 사용자가 직접 pause한 경우와 PiP 차단으로 인한 강제 pause 구분
+            if (e.data === 2 && window._pipShouldPlay === true) {
+              var now = Date.now();
+              if (now - _pipPlayRetryAt > 500) {
+                _pipPlayRetryAt = now;
+                player.playVideo();
+              }
+            }
           },
           onError: function(e) {
             window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'error', code: e.data }));
@@ -47,8 +62,14 @@
       try {
         var msg = JSON.parse(data);
         if (!player) return;
-        if (msg.cmd === 'play')   player.playVideo();
-        if (msg.cmd === 'pause')  player.pauseVideo();
+        if (msg.cmd === 'play') {
+          window._pipShouldPlay = true;
+          player.playVideo();
+        }
+        if (msg.cmd === 'pause') {
+          window._pipShouldPlay = false;
+          player.pauseVideo();
+        }
         if (msg.cmd === 'seekTo') player.seekTo(msg.seconds, true);
         if (msg.cmd === 'loadVideoById') player.loadVideoById({ videoId: msg.videoId });
         if (msg.cmd === 'getTime') {
