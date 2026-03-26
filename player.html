@@ -18,10 +18,12 @@
     document.head.appendChild(tag);
 
     var player;
-    // 방법9: PiP 중 재생 유지 플래그. 네이티브가 play탭 시 true, pause탭 시 false로 설정.
+    // PiP 중 재생 유지 플래그. 네이티브가 play탭 시 true, pause탭 시 false로 설정.
     window._pipShouldPlay = false;
-    // 방법9: onStateChange에서 state=2 감지 시 재호출 무한루프 방지용 쿨다운
+    // onStateChange에서 재호출 무한루프 방지용 쿨다운
     var _pipPlayRetryAt = 0;
+    // 방법11: state=3 감지 후 지연 재시도 타이머
+    var _pipPlayRetryTimer = null;
 
     function onYouTubeIframeAPIReady() {
       player = new YT.Player('player', {
@@ -32,7 +34,7 @@
           modestbranding: 1,
           rel: 0,
           fs: 0,
-          autoplay: 1,  // 방법10: autoplay 활성화
+          autoplay: 1,
         },
         events: {
           onReady: function() {
@@ -40,13 +42,28 @@
           },
           onStateChange: function(e) {
             window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'stateChange', state: e.data }));
-            // 방법9: state=2(일시정지) 감지 + _pipShouldPlay=true → 즉시 playVideo 재호출
-            // 쿨다운 500ms: 사용자가 직접 pause한 경우와 PiP 차단으로 인한 강제 pause 구분
-            if (e.data === 2 && window._pipShouldPlay === true) {
+            if (window._pipShouldPlay === true) {
               var now = Date.now();
-              if (now - _pipPlayRetryAt > 500) {
-                _pipPlayRetryAt = now;
-                player.playVideo();
+              if (e.data === 1) {
+                // 재생 성공 → 예약된 재시도 타이머 취소
+                if (_pipPlayRetryTimer) { clearTimeout(_pipPlayRetryTimer); _pipPlayRetryTimer = null; }
+              } else if (e.data === 2) {
+                // 방법9: state=2(일시정지) → 즉시 재호출
+                if (now - _pipPlayRetryAt > 500) {
+                  _pipPlayRetryAt = now;
+                  player.playVideo();
+                }
+              } else if (e.data === 3) {
+                // 방법11: state=3(버퍼링) → 1500ms 후 재시도
+                if (!_pipPlayRetryTimer && now - _pipPlayRetryAt > 1000) {
+                  _pipPlayRetryTimer = setTimeout(function() {
+                    _pipPlayRetryTimer = null;
+                    if (window._pipShouldPlay === true) {
+                      _pipPlayRetryAt = Date.now();
+                      player.playVideo();
+                    }
+                  }, 1500);
+                }
               }
             }
           },
